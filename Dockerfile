@@ -1,9 +1,6 @@
-FROM ubuntu
+FROM gcr.io/distroless/base-debian12:nonroot
 
-RUN useradd -m -s /sbin/nologin app
-USER app
-WORKDIR /home/app
+COPY ./secrets /usr/local/bin/
 
-COPY ./secrets /home/app/secrets
-
-CMD [ "/home/app/secrets" ]
+EXPOSE 8080
+CMD [ "/usr/local/bin/secrets" ]
