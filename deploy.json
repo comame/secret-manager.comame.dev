@@ -1,0 +1,5 @@
+{
+  "namespace": "secret-manager",
+  "name": "secret-manager",
+  "prebuild": "go build"
+}

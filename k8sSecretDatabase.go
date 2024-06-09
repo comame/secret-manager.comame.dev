@@ -52,7 +52,7 @@ func (d *k8sSecretDatabase) Save(s secret) error {
 
 func (d *k8sSecretDatabase) Get(namespace, name string) (*secret, error) {
 	if namespace != d.namespace {
-		return nil, errors.New("ネームスペースが Kubernetes のものと一致しない")
+		return nil, fmt.Errorf("ネームスペースが Kubernetes のものと一致しない database: %s, request: %s", d.namespace, namespace)
 	}
 
 	secrets, err := d.List(namespace)
