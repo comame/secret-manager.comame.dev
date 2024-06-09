@@ -5,6 +5,12 @@ KUBE_NAMESPACE='secret-dev'
 
 function create_ns() {
     kubectl create ns $KUBE_NAMESPACE || true
+    kubectl apply -f - <<EOF
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: $KUBE_NAMESPACE
+EOF
 }
 
 create_ns
@@ -42,6 +48,22 @@ EOF
           - kind: ServiceAccount
             name: default
             namespace: $KUBE_NAMESPACE
+EOF
+
+    kubectl apply -f - 1>/dev/null <<EOF
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: secret-manager-admin
+        namespace: $KUBE_NAMESPACE
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: cluster-admin
+      subjects:
+        - kind: ServiceAccount
+          name: default
+          namespace: $KUBE_NAMESPACE
 EOF
 }
 

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -61,6 +62,7 @@ func (d *k8sSecretDatabase) Get(namespace, name string) (*secret, error) {
 
 	for _, s := range secrets {
 		if s.Name == name {
+			log.Printf("get secret %s %s", namespace, name)
 			return &s, nil
 		}
 	}
@@ -104,8 +106,36 @@ func (d *k8sSecretDatabase) List(namespace string) ([]secret, error) {
 	return l, nil
 }
 
-func (d *k8sSecretDatabase) ListAllNamespace() ([]secret, error) {
-	panic("TODO: 実装する")
+func (d *k8sSecretDatabase) ListAllNamespaceForAdmin() ([]secret, error) {
+	u := "/api/v1/secrets?labelSelector=app=secret-manager.comame.dev"
+	res, status, err := d.request(u, http.MethodGet, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if status != http.StatusOK {
+		return nil, errors.New("200 ok 以外が返った")
+	}
+
+	log.Println("list all-secrets")
+
+	var kl k8sSecretList
+	if err := json.Unmarshal(res, &kl); err != nil {
+		return nil, err
+	}
+
+	var l []secret
+	for _, v := range kl.Items {
+		s, err := convertK8sSecretToSecret(v)
+		s.Value = ""
+		if err != nil {
+			return nil, err
+		}
+
+		l = append(l, *s)
+	}
+
+	return l, nil
 }
 
 // トークンを露出しないように Stringer を実装

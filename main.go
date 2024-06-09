@@ -1,10 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-	"os"
+	"net/http"
 	"regexp"
 )
 
@@ -51,38 +52,41 @@ func (s *secret) validate() error {
 	return nil
 }
 
-func init() {
-}
-
 func main() {
-	databaseInstance := createK8sSecretDatabase(os.Getenv("KUBE_SERVICEACCOUNT_TOKEN"))
-	log.Println(databaseInstance)
-	log.Printf("%#v", databaseInstance)
+	http.HandleFunc("GET /v1/secrets/{namespace}/{name}", func(w http.ResponseWriter, r *http.Request) {
+		ns := r.PathValue("namespace")
+		name := r.PathValue("name")
 
-	if err := databaseInstance.Save(secret{
-		ID:        "id",
-		Name:      "test-secret",
-		Namespace: "secret-dev",
-		Type:      secretTypePlain,
-		Value:     "super secret string!",
-	}); err != nil {
-		log.Println(err)
-	}
+		// trim "Bearer "
+		authHeader := r.Header.Get("Authorization")
+		if len(authHeader) < 8 {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("{}\n"))
+			return
+		}
+		token := authHeader[7:]
 
-	if err := databaseInstance.Save(secret{
-		ID:        "id",
-		Name:      "test-secret-2",
-		Namespace: "secret-dev",
-		Type:      secretTypePlain,
-		Value:     "super secret string!",
-	}); err != nil {
-		log.Println(err)
-	}
+		db := createK8sSecretDatabase(token)
+		secret, err := db.Get(ns, name)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("{}\n"))
+			return
+		}
 
-	sarr, err := databaseInstance.List("secret-dev")
-	log.Println(sarr, err)
+		js, err := json.Marshal(secret)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("{}\n"))
+			return
+		}
 
-	s, err := databaseInstance.Get("secret-dev", "test-secret")
-	log.Println(s, err)
-	log.Printf("%#v", s)
+		w.Write(js)
+		w.Write([]byte("\n"))
+	})
+
+	log.Println("start 0.0.0.0:8080")
+	http.ListenAndServe(":8080", nil)
 }
